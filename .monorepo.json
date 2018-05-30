@@ -98,6 +98,17 @@
       "hash": "f78f0653fff492941a04ba68c58b2ac8",
       "snapshotRepo": "angular/angular-devkit-build-ng-packagr-builds"
     },
+    "@angular-devkit/build-ng-packagr-styled": {
+      "name": "Build NgPackagr Styled",
+      "links": [
+        {
+          "label": "README",
+          "url": "https://github.com/jogaram/build-ng-packagr-styled/blob/master/README.md"
+        }
+      ],
+      "version": "0.1.0",
+      "snapshotRepo": "jogaram/build-ng-packagr-styled"
+    },
     "@angular-devkit/build-angular": {
       "name": "Build Angular",
       "links": [
