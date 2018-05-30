@@ -98,7 +98,7 @@
       "hash": "f78f0653fff492941a04ba68c58b2ac8",
       "snapshotRepo": "angular/angular-devkit-build-ng-packagr-builds"
     },
-    "@angular-devkit/build-ng-packagr-styled": {
+    "@jogaram/build-ng-packagr-styled": {
       "name": "Build NgPackagr Styled",
       "links": [
         {
