@@ -75,7 +75,7 @@ export class NgPackagrBuilder implements Builder<NgPackagrBuilderOptions> {
 
   mergeStyles(root: string, index: string, destRoot: string): Promise<void> {
     const src = path.resolve(root, path.normalize(index));
-    const dest = path.join(destRoot, `index.${path.extname(index)}`);
+    const dest = path.join(destRoot, `index${path.extname(index)}`);
 
     this.context.logger.info(`Bundling SASS/SCSS styles from "${src}" to "${dest}"`);
 
