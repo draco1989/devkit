@@ -90,6 +90,7 @@ export interface AngularCompilerPluginOptions {
   compilerOptions?: ts.CompilerOptions;
 
   host?: virtualFs.Host<fs.Stats>;
+  platformTransformers?: ts.TransformerFactory<ts.SourceFile>[];
 }
 
 export enum PLATFORM {
@@ -115,6 +116,7 @@ export class AngularCompilerPlugin {
   private _mainPath: string | undefined;
   private _basePath: string;
   private _transformers: ts.TransformerFactory<ts.SourceFile>[] = [];
+  private _platformTransformers: ts.TransformerFactory<ts.SourceFile>[] | null = null;
   private _platform: PLATFORM;
   private _JitMode = false;
   private _emitSkipped = true;
@@ -260,6 +262,11 @@ export class AngularCompilerPlugin {
       this._forkTypeChecker = options.forkTypeChecker;
     }
 
+    // Add custom platform transformers.
+    if (options.platformTransformers !== undefined) {
+      this._platformTransformers = options.platformTransformers;
+    }
+
     // Create the webpack compiler host.
     const webpackCompilerHost = new WebpackCompilerHost(
       this._compilerOptions,
@@ -318,7 +325,7 @@ export class AngularCompilerPlugin {
 
   private _getChangedTsFiles() {
     return this._compilerHost.getChangedFilePaths()
-      .filter(k => k.endsWith('.ts') && !k.endsWith('.d.ts'))
+      .filter(k => (k.endsWith('.ts') || k.endsWith('.tsx')) && !k.endsWith('.d.ts'))
       .filter(k => this._compilerHost.fileExists(k));
   }
 
@@ -492,7 +499,7 @@ export class AngularCompilerPlugin {
           modulePath = lazyRouteTSFile;
           moduleKey = `${lazyRouteModule}${moduleName ? '#' + moduleName : ''}`;
         } else {
-          modulePath = lazyRouteTSFile.replace(/(\.d)?\.ts$/, '');
+          modulePath = lazyRouteTSFile.replace(/(\.d)?\.tsx?$/, '');
           modulePath += '.ngfactory.js';
           const factoryModuleName = moduleName ? `#${moduleName}NgFactory` : '';
           moduleKey = `${lazyRouteModule}.ngfactory${factoryModuleName}`;
@@ -679,7 +686,8 @@ export class AngularCompilerPlugin {
         // Wait for the plugin to be done when requesting `.ts` files directly (entry points), or
         // when the issuer is a `.ts` or `.ngfactory.js` file.
         nmf.hooks.beforeResolve.tapAsync('angular-compiler', (request: any, callback: any) => {
-          if (this.done && (request && request.request.endsWith('.ts')
+          if (this.done
+              && (request && (request.request.endsWith('.ts') || request.request.endsWith('.tsx'))
               || (request && request.context.issuer
                 && /\.ts|ngfactory\.js$/.test(request.context.issuer)))) {
             this.done.then(() => callback(null, request), () => callback(null, request));
@@ -757,25 +765,29 @@ export class AngularCompilerPlugin {
       this._transformers.push(removeDecorators(isAppPath, getTypeChecker));
     }
 
-    if (this._platform === PLATFORM.Browser) {
-      // If we have a locale, auto import the locale data file.
-      // This transform must go before replaceBootstrap because it looks for the entry module
-      // import, which will be replaced.
-      if (this._normalizedLocale) {
-        this._transformers.push(registerLocaleData(isAppPath, getEntryModule,
-          this._normalizedLocale));
-      }
+    if (this._platformTransformers !== null) {
+      this._transformers.push(...this._platformTransformers);
+    } else {
+      if (this._platform === PLATFORM.Browser) {
+        // If we have a locale, auto import the locale data file.
+        // This transform must go before replaceBootstrap because it looks for the entry module
+        // import, which will be replaced.
+        if (this._normalizedLocale) {
+          this._transformers.push(registerLocaleData(isAppPath, getEntryModule,
+            this._normalizedLocale));
+        }
 
-      if (!this._JitMode) {
-        // Replace bootstrap in browser AOT.
-        this._transformers.push(replaceBootstrap(isAppPath, getEntryModule, getTypeChecker));
-      }
-    } else if (this._platform === PLATFORM.Server) {
-      this._transformers.push(exportLazyModuleMap(isMainPath, getLazyRoutes));
-      if (!this._JitMode) {
-        this._transformers.push(
-          exportNgFactory(isMainPath, getEntryModule),
-          replaceServerBootstrap(isMainPath, getEntryModule, getTypeChecker));
+        if (!this._JitMode) {
+          // Replace bootstrap in browser AOT.
+          this._transformers.push(replaceBootstrap(isAppPath, getEntryModule, getTypeChecker));
+        }
+      } else if (this._platform === PLATFORM.Server) {
+        this._transformers.push(exportLazyModuleMap(isMainPath, getLazyRoutes));
+        if (!this._JitMode) {
+          this._transformers.push(
+            exportNgFactory(isMainPath, getEntryModule),
+            replaceServerBootstrap(isMainPath, getEntryModule, getTypeChecker));
+        }
       }
     }
   }
@@ -882,7 +894,7 @@ export class AngularCompilerPlugin {
   }
 
   getCompiledFile(fileName: string) {
-    const outputFile = fileName.replace(/.ts$/, '.js');
+    const outputFile = fileName.replace(/.tsx?$/, '.js');
     let outputText: string;
     let sourceMap: string | undefined;
     let errorDependencies: string[] = [];
@@ -906,7 +918,8 @@ export class AngularCompilerPlugin {
       }
     } else {
       // Check if the TS input file and the JS output file exist.
-      if ((fileName.endsWith('.ts') && !this._compilerHost.fileExists(fileName, false))
+      if (((fileName.endsWith('.ts') || fileName.endsWith('.tsx'))
+        && !this._compilerHost.fileExists(fileName, false))
         || !this._compilerHost.fileExists(outputFile, false)) {
         let msg = `${fileName} is missing from the TypeScript compilation. `
           + `Please make sure it is in your tsconfig via the 'files' or 'include' property.`;

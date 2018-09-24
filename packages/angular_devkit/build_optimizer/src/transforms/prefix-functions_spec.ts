@@ -124,5 +124,43 @@ describe('prefix-functions', () => {
 
       expect(tags.oneLine`${transform(input)}`).toEqual(tags.oneLine`${output}`);
     });
+
+    it('doesn\'t add comment when inside class', () => {
+      const input = tags.stripIndent`
+        class Foo {
+          constructor(e) {
+            super(e);
+          }
+          method() {
+            var newClazz = new Clazz();
+          }
+        }
+      `;
+      const output = tags.stripIndent`
+        ${emptyImportsComment}
+        ${input}
+      `;
+
+      expect(tags.oneLine`${transform(input)}`).toEqual(tags.oneLine`${output}`);
+    });
+
+    it('doesn\'t add comment when inside arrow function', () => {
+      const input = tags.stripIndent`
+        export const subscribeToArray = (array) => (subscriber) => {
+            for (let i = 0, len = array.length; i < len && !subscriber.closed; i++) {
+                subscriber.next(array[i]);
+            }
+            if (!subscriber.closed) {
+                subscriber.complete();
+            }
+        };
+      `;
+      const output = tags.stripIndent`
+        ${emptyImportsComment}
+        ${input}
+      `;
+
+      expect(tags.oneLine`${transform(input)}`).toEqual(tags.oneLine`${output}`);
+    });
   });
 });

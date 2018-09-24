@@ -45,7 +45,7 @@
     "node": ">= 8.9.0",
     "npm": ">= 5.5.1"
   },
-  "author": "Angular Authors",
+  "author": "Jorge García",
   "license": "MIT",
   "bugs": {
     "url": "https://github.com/draco1989/devkit/issues"
@@ -82,7 +82,6 @@
     "ajv": "~6.4.0",
     "autoprefixer": "^8.4.1",
     "bootstrap": "^4.0.0",
-    "cache-loader": "^1.2.2",
     "chalk": "~2.2.2",
     "chokidar": "^2.0.3",
     "circular-dependency-plugin": "^5.0.2",
