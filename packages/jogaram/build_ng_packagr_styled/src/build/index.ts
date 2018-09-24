@@ -17,7 +17,10 @@ import * as ngPackagr from 'ng-packagr';
 import { Observable } from 'rxjs';
 import * as path from 'path';
 import { Bundler } from 'scss-bundle';
-import { writeFile } from 'fs';
+import { copyFile, writeFile } from 'fs';
+import * as glob from 'glob';
+import * as mkdirp from 'mkdirp';
+import { flattenDeep } from 'lodash';
 
 // TODO move this function to architect or somewhere else where it can be imported from.
 // Blatantly copy-pasted from 'require-project-module.ts'.
@@ -25,10 +28,18 @@ function requireProjectModule(root: string, moduleName: string) {
   return require(require.resolve(moduleName, {paths: [root]}));
 }
 
+function promisify<T extends Function>(fn: T) {
+  return (...args: any[]): Promise<void> =>
+    new Promise((resolve, reject) =>
+      fn(...args, (err: string | Error) =>
+        err ? reject(err) : resolve()));
+}
+
 export interface NgPackagrBuilderOptions {
   project: string;
+  stylesIndex: string;
   tsConfig?: string;
-  stylesIndex?: string;
+  include?: string[];
 }
 
 export class NgPackagrBuilder implements Builder<NgPackagrBuilderOptions> {
@@ -66,6 +77,15 @@ export class NgPackagrBuilder implements Builder<NgPackagrBuilderOptions> {
           }
         })
         .then(() => {
+          if (options.include) {
+            return this.includeFiles(
+              root.toString(),
+              destPath,
+              builderConfig.sourceRoot,
+              builderConfig.options.include);
+          }
+        })
+        .then(() => {
           obs.next({success: true});
           obs.complete();
         })
@@ -73,7 +93,33 @@ export class NgPackagrBuilder implements Builder<NgPackagrBuilderOptions> {
     });
   }
 
-  mergeStyles(root: string, index: string, destRoot: string): Promise<void> {
+  private includeFiles(root: string, destRoot: string, sourceRoot?: string,
+                       includes: string[] = []): Promise<void> {
+    this.context.logger.info(`Bundling included file paths...`);
+
+    return Promise
+      .all(includes.map(pathGlob =>
+        new Promise((resolve, reject) =>
+          glob(path.resolve(root, path.normalize(pathGlob)),
+            (err, files) => err ? reject(err) : resolve(files)))))
+      .then(pathMatrix => flattenDeep(pathMatrix) as string[])
+      .then(files =>
+        Promise.all(files.map(file =>
+          this.bundleFile(root, file, destRoot, sourceRoot))))
+      .then(() => this.context.logger.info(`Files bundling succeeded!`));
+  }
+
+  private bundleFile(root: string, file: string, destRoot: string, sourceRoot?: string) {
+    const src = path.resolve(root, path.normalize(file)),
+      dest = path.join(destRoot, path.relative(sourceRoot || root, src));
+
+    this.context.logger.info(`Copy: "${src}" --> "${dest}"`);
+
+    return promisify(mkdirp)(path.dirname(dest))
+      .then(() => promisify(copyFile)(src, dest));
+  }
+
+  private mergeStyles(root: string, index: string, destRoot: string): Promise<void> {
     const src = path.resolve(root, path.normalize(index));
     const dest = path.join(destRoot, `index${path.extname(index)}`);
 
@@ -82,25 +128,14 @@ export class NgPackagrBuilder implements Builder<NgPackagrBuilderOptions> {
     return new Bundler().Bundle(src)
       .then(result => {
         if (result.found && 'string' === typeof result.bundledContent) {
-          return this.saveBundledSass(result.bundledContent, dest);
+          return promisify(writeFile)(
+            dest, result.bundledContent, {encoding: 'utf8'}) as Promise<void>;
         } else {
           return Promise.reject(`Could not find SASS/SCSS index file at "${src}"`);
         }
       })
       .then(() => this.context.logger.info(`SASS/SCSS styles bundling succeeded!`));
   }
-
-  saveBundledSass(content: string, file: string): Promise<void> {
-    return new Promise(((resolve, reject) =>
-      writeFile(file, content, {encoding: 'utf8'}, err => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve();
-        }
-      })));
-  }
-
 }
 
 export default NgPackagrBuilder;

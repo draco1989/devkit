@@ -106,7 +106,7 @@
           "url": "https://github.com/jogaram/build-ng-packagr-styled/blob/master/README.md"
         }
       ],
-      "version": "0.2.1",
+      "version": "0.3.0",
       "snapshotRepo": "jogaram/build-ng-packagr-styled"
     },
     "@angular-devkit/build-angular": {

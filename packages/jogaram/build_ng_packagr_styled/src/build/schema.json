@@ -1,4 +1,5 @@
 {
+  "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "ng-packagr Target",
   "description": "ng-packagr target options for Build Architect.",
   "type": "object",
@@ -14,10 +15,18 @@
     "stylesIndex": {
       "type": "string",
       "description": "The file path of scss/sass main package file."
+    },
+    "include": {
+      "type": "array",
+      "description": "Include dir/files into distribution package.",
+      "items": {
+        "type": "string"
+      }
     }
   },
   "additionalProperties": false,
   "required": [
-    "project"
+    "project",
+    "stylesIndex"
   ]
 }
