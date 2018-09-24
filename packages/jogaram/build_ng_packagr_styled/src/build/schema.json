@@ -26,7 +26,6 @@
   },
   "additionalProperties": false,
   "required": [
-    "project",
-    "stylesIndex"
+    "project"
   ]
 }
